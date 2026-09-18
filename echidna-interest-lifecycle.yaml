@@ -1,0 +1,40 @@
+workers: 3
+symExec: false
+
+testMode: assertion
+prefix: echidna_
+corpusDir: echidna-interest-lifecycle-directed-corpus
+
+testLimit: 1000000
+shrinkLimit: 200000
+# Each lifecycle entrypoint constructs its own directed prefix. Keep sequences
+# single-call so unrelated directed actions do not accumulate snapshot gas.
+seqLen: 1
+
+balanceContract: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+codeSize: 0x10000
+
+deployer: "0xfffff"
+sender: ["0x10000", "0x20000", "0x30000"]
+deployContracts:
+  [
+    ["0x000000000000000000000000000000000000F010", "AddressExtensions"],
+  ]
+
+filterBlacklist: false
+filterFunctions:
+  [
+    "FuzzMarketplaceLifecycle.fuzz_directSaleResolveUnpaid(uint256,uint256)",
+    "FuzzMarketplaceLifecycle.fuzz_directSaleSettleUnpaid(uint256,uint256)",
+    "FuzzMarketplaceLifecycle.fuzz_directSaleWithdrawAfterUnpaidSettlement(uint256,uint256)",
+    "FuzzMarketplaceLifecycle.fuzz_interestDiscoveryCloseExpiredInterest(uint256,uint256)",
+    "FuzzMarketplaceLifecycle.fuzz_interestDiscoveryCloseExpiredInterestsBatch(uint256,uint256)",
+    "FuzzMarketplaceLifecycle.fuzz_interestDiscoveryWithdrawExpiredAvailable(uint256,uint256)",
+    "FuzzMarketplaceLifecycle.fuzz_activatedInterestResolveUnpaid(uint256,uint256)",
+    "FuzzMarketplaceLifecycle.fuzz_activatedInterestSettleUnpaid(uint256,uint256)",
+    "FuzzMarketplaceLifecycle.fuzz_marketplaceNegativeValidationSurface(uint256,uint256)"
+  ]
+
+# `contract` is passed on the CLI because Echidna 2.3.1 treats the YAML key as unused.
+# Set `FOUNDRY_PROFILE=echidna` when running Echidna so Foundry emits pre-linked bytecode
+# for the harness and its dependencies.

@@ -1,0 +1,6 @@
+@openzeppelin/contracts-upgradeable/=dependencies/@openzeppelin-contracts-upgradeable-5.5.0/contracts/
+@openzeppelin/contracts/=dependencies/@openzeppelin-contracts-5.5.0/contracts/
+forge-std/=dependencies/forge-std-1.9.6/src/
+solady/=dependencies/solady-0.1.26/
+@perimetersec/fuzzlib/=dependencies/perimetersec-fuzzlib-1.0.0/
+ebsi/=dependencies/ebsi-infrastructure-contracts-0.0.3/src/

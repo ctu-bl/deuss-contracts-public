@@ -1,0 +1,93 @@
+FROM ghcr.io/foundry-rs/foundry:v1.7.0 AS builder
+
+ARG CI_JOB_TOKEN
+
+USER root
+RUN apt-get update && apt-get install -y git make bash curl ca-certificates jq
+
+# Configure git credentials and clone account-abstraction
+RUN git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.nesad.fit.vutbr.cz/".insteadOf "https://gitlab.nesad.fit.vutbr.cz/" && \
+    git clone --branch 0.1.1 https://gitlab.nesad.fit.vutbr.cz/bebi/onchain-core/account-abstraction /app/smart-account/
+WORKDIR /app/smart-account/
+RUN forge soldeer install
+RUN forge build
+
+# Build bond-contract dependencies
+WORKDIR /app/bond/
+COPY /foundry.toml /app/bond/foundry.toml
+COPY /soldeer.lock /app/bond/soldeer.lock
+RUN git config --global url."https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.nesad.fit.vutbr.cz/".insteadOf "https://gitlab.nesad.fit.vutbr.cz/" && \
+    forge soldeer install
+
+# ---- Runtime image (k8s / CI target — no local-only concerns) ----
+FROM ghcr.io/foundry-rs/foundry:v1.7.0 AS runtime
+USER root
+RUN apt-get update && apt-get install -y tini make bash curl ca-certificates jq
+
+# Copy account-abstraction from builder
+COPY --from=builder /app/smart-account /app/smart-account
+
+# Copy pre-built bond-contract artifacts
+WORKDIR /app/bond/
+COPY --from=builder /app/bond/dependencies /app/bond/dependencies
+COPY /out /app/bond/out
+COPY /Makefile /app/bond/Makefile
+COPY /script /app/bond/script
+COPY /src /app/bond/src
+COPY /*.txt /app/bond
+COPY /*.toml /app/bond
+
+HEALTHCHECK --interval=5s --timeout=3s --start-period=30s --retries=3 \
+  CMD curl -sf -X POST http://localhost:8545 \
+    -H "Content-Type: application/json" \
+    -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' \
+    || exit 1
+
+RUN mkdir -p /data
+
+EXPOSE 8545
+
+ENTRYPOINT ["/usr/bin/tini", "--", "bash", "-c", "\
+  STATE_FILE=/data/anvil-state.json; \
+  LOAD_ARG=''; \
+  [ -f \"$STATE_FILE\" ] && LOAD_ARG=\"--load-state $STATE_FILE\"; \
+  anvil --host 0.0.0.0 --gas-price 0 --base-fee 0 --hardfork cancun --dump-state $STATE_FILE $LOAD_ARG & ANVIL_PID=$!; \
+  trap 'kill -TERM $ANVIL_PID; wait $ANVIL_PID' TERM INT; \
+  sleep 3; \
+  if [ -z \"$LOAD_ARG\" ]; then \
+    cd /app/smart-account && make setup_full; \
+    cd /app/bond && make setup_full_test_data; \
+    cp -r /app/bond/deployments /data/deployments-bond; \
+    cp -r /app/smart-account/deployments /data/deployments-kernel; \
+  fi; \
+  wait $ANVIL_PID"]
+
+# ---- Local docker-compose image (adds Blockscout verification; not used for k8s/CI) ----
+FROM runtime AS local-compose
+
+ENTRYPOINT ["/usr/bin/tini", "--", "bash", "-c", "\
+  STATE_FILE=/data/anvil-state.json; \
+  LOAD_ARG=''; \
+  [ -f \"$STATE_FILE\" ] && LOAD_ARG=\"--load-state $STATE_FILE\"; \
+  anvil --host 0.0.0.0 --gas-price 0 --base-fee 0 --hardfork cancun --dump-state $STATE_FILE $LOAD_ARG & ANVIL_PID=$!; \
+  trap 'kill -TERM $ANVIL_PID; wait $ANVIL_PID' TERM INT; \
+  sleep 3; \
+  if [ -z \"$LOAD_ARG\" ]; then \
+    cd /app/smart-account && make setup_full; \
+    cd /app/bond && make setup_full_test_data; \
+    cp -r /app/bond/deployments /data/deployments-bond; \
+    cp -r /app/smart-account/deployments /data/deployments-kernel; \
+    ( \
+      echo 'Waiting for Blockscout backend before verifying bond-contract...'; \
+      i=0; \
+      until curl -sf http://backend:4000/api/v2/blocks >/dev/null 2>&1 || [ $i -ge 60 ]; do \
+        i=$((i+1)); sleep 5; \
+      done; \
+      if curl -sf http://backend:4000/api/v2/blocks >/dev/null 2>&1; then \
+        cd /app/bond && make verify_contracts NETWORK=anvil || echo 'Contract verification failed.'; \
+      else \
+        echo 'Blockscout backend not reachable after 5 minutes; skipping verification.'; \
+      fi \
+    ) & \
+  fi; \
+  wait $ANVIL_PID"]

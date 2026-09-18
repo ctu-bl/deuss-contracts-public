@@ -1,0 +1,26 @@
+{
+  "scripts": {
+    "events": "tools/local/run_anvil_setup_with_exports.sh --start-anvil --keep-anvil",
+    "events:stop-anvil": "tools/local/run_anvil_setup_with_exports.sh --stop-anvil",
+    "gen-transfer": "tools/local/generate_bond_transfer_event_with_export.sh",
+    "lint": "npx solhint \"script/**/*.sol\" -c .solhint.s.json; npx solhint \"src/**/*.sol\"; npx solhint \"test/**/*.sol\" -c .solhint.t.json",
+    "lint-src": "npx solhint \"script/**/*.sol\"; npx solhint \"src/**/*.sol\"",
+    "lint-all": "npx solhint \"script/**/*.sol\" -c .solhint.s.json; npx solhint \"src/**/*.sol\"; npx solhint \"test/**/*.sol\" -c .solhint.t.json",
+    "coverage": "forge coverage --report summary --report lcov",
+    "slither-debug": "slither . --fail-none --skip-assembly --exclude-informational --exclude-low --no-fail --include-paths 'src/(?!ebsi/)'",
+    "mythril": "bash ./tools/ci/mythril-analyze.sh",
+    "mythril-fast": "MYTHRIL_EXEC_TIMEOUT=30 bash ./tools/ci/mythril-analyze.sh",
+    "echidna": "bash ./tools/fuzzing/run-echidna.sh",
+    "echidna-fast": "bash ./tools/fuzzing/run-echidna.sh --disable-slither --test-limit 10000 --shrink-limit 1000",
+    "echidna-interest-lifecycle": "ECHIDNA_CONFIG=echidna-interest-lifecycle.yaml ECHIDNA_TARGET_FILE=test/fuzzing/FuzzMarketplaceLifecycle.sol ECHIDNA_TARGET_CONTRACT=FuzzMarketplaceLifecycle bash ./tools/fuzzing/run-echidna.sh",
+    "echidna-interest-lifecycle-fast": "ECHIDNA_CONFIG=echidna-interest-lifecycle.yaml ECHIDNA_TARGET_FILE=test/fuzzing/FuzzMarketplaceLifecycle.sol ECHIDNA_TARGET_CONTRACT=FuzzMarketplaceLifecycle bash ./tools/fuzzing/run-echidna.sh --disable-slither --test-limit 10000 --shrink-limit 1000",
+    "medusa": "bash ./tools/fuzzing/run-medusa.sh",
+    "medusa-fast": "bash ./tools/fuzzing/run-medusa.sh --test-limit 1 --use-slither=false",
+    "medusa-interest-lifecycle": "MEDUSA_CONFIG=medusa-interest-lifecycle.json bash ./tools/fuzzing/run-medusa.sh",
+    "medusa-interest-lifecycle-fast": "MEDUSA_CONFIG=medusa-interest-lifecycle.json bash ./tools/fuzzing/run-medusa.sh --test-limit 1 --use-slither=false"
+  },
+  "devDependencies": {
+    "solc": "^0.8.34",
+    "solhint": "^6.2.1"
+  }
+}

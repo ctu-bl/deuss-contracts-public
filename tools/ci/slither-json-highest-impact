@@ -1,0 +1,10 @@
+#!/bin/sh
+exec jq -r '[ .results.detectors[]
+              | select(.elements[].source_mapping.filename_relative | startswith("dependencies/") | not)
+              | .impact ]
+            | if index("High") then "High"
+              elif index("Medium") then "Medium"
+              elif index("Low") then "Low"
+              elif index("Informational") then "Informational"
+              else "none"
+              end' "$@"

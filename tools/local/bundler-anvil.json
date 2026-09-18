@@ -1,0 +1,23 @@
+{
+  "entryPoints": [
+    "0x0000000071727De22E5E9d8BAf0edAc6f37da032"
+  ],
+  "relayers": [
+    "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97"
+  ],
+  "rpcEndpoint": "http://anvil-dev:8545",
+  "minStake": 0,
+  "whitelistedEntities": {
+    "factory": [
+      "0x9206AFC55BAC9643f46ff88C52CE6aFa88b86561"
+    ],
+    "paymaster": [
+      "0x83Fb4eE58D3540c4C011bCC60c5203E7C71F15A7"
+    ],
+    "account": []
+  },
+  "rpcTimeout": 30,
+  "nativeTracer": "true",
+  "minSignerBalance": 0,
+  "multicall": "0x3371f83083e2ca701ac056c60a6FbE5Dfb816F11"
+}

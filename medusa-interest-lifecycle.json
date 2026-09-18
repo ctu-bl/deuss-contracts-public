@@ -1,0 +1,93 @@
+{
+  "fuzzing": {
+    "workers": 2,
+    "workerResetLimit": 50,
+    "timeout": 0,
+    "testLimit": 0,
+    "shrinkLimit": 5000,
+    "callSequenceLength": 1,
+    "corpusDirectory": "medusa-interest-lifecycle-directed-corpus",
+    "coverageEnabled": true,
+    "coverageFormats": ["html", "lcov"],
+    "targetContracts": ["FuzzMarketplaceLifecycle"],
+    "predeployedContracts": {
+      "AddressExtensions": "0x000000000000000000000000000000000000F010"
+    },
+    "targetContractsBalances": ["0xfffffffffffffffffffffffffffffff"],
+    "constructorArgs": {},
+    "deployerAddress": "0xfffff",
+    "senderAddresses": ["0x10000", "0x20000", "0x30000"],
+    "blockNumberDelayMax": 100800,
+    "blockTimestampDelayMax": 604800,
+    "blockGasLimit": 125000000,
+    "transactionGasLimit": 12500000,
+    "testing": {
+      "stopOnFailedTest": true,
+      "stopOnFailedContractMatching": true,
+      "stopOnNoTests": true,
+      "testAllContracts": false,
+      "traceAll": false,
+      "assertionTesting": {
+        "enabled": true,
+        "testViewMethods": true,
+        "panicCodeConfig": {
+          "failOnCompilerInsertedPanic": false,
+          "failOnAssertion": true,
+          "failOnArithmeticUnderflow": false,
+          "failOnDivideByZero": false,
+          "failOnEnumTypeConversionOutOfBounds": false,
+          "failOnIncorrectStorageAccess": false,
+          "failOnPopEmptyArray": false,
+          "failOnOutOfBoundsArrayAccess": false,
+          "failOnAllocateTooMuchMemory": false,
+          "failOnCallUninitializedVariable": false
+        }
+      },
+      "propertyTesting": {
+        "enabled": false,
+        "testPrefixes": ["echidna_"]
+      },
+      "optimizationTesting": {
+        "enabled": false,
+        "testPrefixes": ["echidna_opt_"]
+      },
+      "targetFunctionSignatures": [
+        "FuzzMarketplaceLifecycle.fuzz_directSaleResolveUnpaid(uint256,uint256)",
+        "FuzzMarketplaceLifecycle.fuzz_directSaleSettleUnpaid(uint256,uint256)",
+        "FuzzMarketplaceLifecycle.fuzz_directSaleWithdrawAfterUnpaidSettlement(uint256,uint256)",
+        "FuzzMarketplaceLifecycle.fuzz_interestDiscoveryCloseExpiredInterest(uint256,uint256)",
+        "FuzzMarketplaceLifecycle.fuzz_interestDiscoveryCloseExpiredInterestsBatch(uint256,uint256)",
+        "FuzzMarketplaceLifecycle.fuzz_interestDiscoveryWithdrawExpiredAvailable(uint256,uint256)",
+        "FuzzMarketplaceLifecycle.fuzz_activatedInterestResolveUnpaid(uint256,uint256)",
+        "FuzzMarketplaceLifecycle.fuzz_activatedInterestSettleUnpaid(uint256,uint256)",
+        "FuzzMarketplaceLifecycle.fuzz_marketplaceNegativeValidationSurface(uint256,uint256)"
+      ],
+      "excludeFunctionSignatures": []
+    },
+    "chainConfig": {
+      "codeSizeCheckDisabled": true,
+      "cheatCodes": {
+        "cheatCodesEnabled": true,
+        "enableFFI": false
+      },
+      "skipAccountChecks": true
+    }
+  },
+  "compilation": {
+    "platform": "crytic-compile",
+    "platformConfig": {
+      "target": "test/fuzzing/FuzzMarketplaceLifecycle.sol",
+      "solcVersion": "",
+      "exportDirectory": "",
+      "args": [
+        "--compile-libraries",
+        "(AddressExtensions,0x000000000000000000000000000000000000F010)"
+      ]
+    }
+  },
+  "logging": {
+    "level": "info",
+    "logDirectory": "",
+    "noColor": false
+  }
+}

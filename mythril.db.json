@@ -1,0 +1,14 @@
+{
+  "suppressions": [
+    {
+      "file": "src/registry/EntityRegistry.sol",
+      "contract": "EntityRegistry",
+      "function": "canApprove(address,address,uint256,uint256)",
+      "title": "Integer Arithmetic Bugs",
+      "severity": "High",
+      "sourceMap": "21026:45",
+      "swc-id": "101",
+      "reason": "False positive from Mythril modeling arbitrary storage for AccountStatus in _isAccountEnabled. Contract write paths only store valid AccountStatus enum values: registration writes ENABLED, setAccountStatus accepts the enum type and rejects NONE, and removal deletes to NONE."
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+[[dependencies]]
+name = "@openzeppelin-contracts"
+version = "5.5.0"
+git = "https://github.com/OpenZeppelin/openzeppelin-contracts.git"
+rev = "fcbae5394ae8ad52d8e580a3477db99814b9d565"
+
+[[dependencies]]
+name = "@openzeppelin-contracts-upgradeable"
+version = "5.5.0"
+git = "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable.git"
+rev = "aa677e9d28ed78fc427ec47ba2baef2030c58e7c"
+
+[[dependencies]]
+name = "ebsi-infrastructure-contracts"
+version = "0.0.3"
+git = "https://gitlab.nesad.fit.vutbr.cz/bebi/onchain-core/ebsi-infrastructure-contracts.git"
+rev = "559f7d85d69260c4d6e31a512cfb2c42d6d02f62"
+
+[[dependencies]]
+name = "forge-std"
+version = "1.9.6"
+git = "https://github.com/foundry-rs/forge-std.git"
+rev = "3b20d60d14b343ee4f908cb8079495c07f5e8981"
+
+[[dependencies]]
+name = "perimetersec-fuzzlib"
+version = "1.0.0"
+git = "https://github.com/perimetersec/fuzzlib.git"
+rev = "00369e5d8f51b71ebbac5f440647a7b5568e7fba"
+
+[[dependencies]]
+name = "solady"
+version = "0.1.26"
+git = "https://github.com/Vectorized/solady.git"
+rev = "acd959aa4bd04720d640bf4e6a5c71037510cc4b"

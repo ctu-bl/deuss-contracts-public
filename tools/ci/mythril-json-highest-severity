@@ -1,0 +1,12 @@
+#!/bin/sh
+# Usage: mythril-json-highest-severity <mythril-report.json> [...]
+#
+# Reads one or more aggregated Mythril reports (see mythril-analyze.sh) and
+# prints the highest issue severity found: High > Medium > Low, or "none" when
+# there are no issues. Mirrors tools/ci/slither-json-highest-impact.
+exec jq -rs '[ .[].issues[]?.severity ]
+            | if index("High") then "High"
+              elif index("Medium") then "Medium"
+              elif index("Low") then "Low"
+              else "none"
+              end' "$@"

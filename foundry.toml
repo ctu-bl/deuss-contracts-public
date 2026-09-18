@@ -1,0 +1,51 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["dependencies"]
+auto_detect_solc = false
+solc_version = "0.8.34"
+evm_version = "cancun"
+optimizer = true
+optimizer-runs = 200
+bytecode_hash = "none" # deterministic CREATE2 deployment
+cbor_metadata = false  # deterministic bytecode for CREATE2
+# Ignored warnings:
+#   2424 - natspec memory-safe-assembly
+#   4591 - more than 256 warnings
+#   8429 - virtual modifiers are deprecated
+ignored_error_codes = [2424,4591, 8429]
+via-ir = true
+
+fs_permissions = [
+    { access = "read", path = "./broadcast" },
+    { access = "read-write", path = "./deployments" },
+    { access = "read", path = "./reports" },
+]
+
+[lint]
+exclude_lints = ["unsafe-typecast", "block-timestamp", "incorrect-shift"]
+
+[soldeer]
+remappings_generate = false
+remappings_regenerate = false
+remappings_version = false
+remappings_prefix = ""
+recursive_deps = true
+
+[dependencies]
+"@openzeppelin-contracts" = { version = "5.5.0", git = "https://github.com/OpenZeppelin/openzeppelin-contracts.git", tag = "v5.5.0" }
+"@openzeppelin-contracts-upgradeable" = { version = "5.5.0", git = "https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable.git", tag = "v5.5.0" }
+forge-std = { version = "1.9.6", git = "https://github.com/foundry-rs/forge-std.git", tag = "v1.9.6" }
+solady = { version = "0.1.26", git = "https://github.com/Vectorized/solady.git", tag = "v0.1.26" }
+perimetersec-fuzzlib = { version = "1.0.0", git = "https://github.com/perimetersec/fuzzlib.git", tag = "v1.0.0" }
+"ebsi-infrastructure-contracts" = { version = "0.0.3", git = "https://gitlab.nesad.fit.vutbr.cz/bebi/onchain-core/ebsi-infrastructure-contracts.git", tag = "0.0.3" }
+
+[profile.echidna]
+libraries = [
+    "src/libs/AddressExtensions.sol:AddressExtensions:0x000000000000000000000000000000000000F010",
+    "ebsi/did-registry/VRelationshipsLib.sol:VRelationshipsLib:0x000000000000000000000000000000000000F011",
+    "ebsi/did-registry/DidDocumentLib.sol:DidDocumentLib:0x000000000000000000000000000000000000F012",
+    "ebsi/did-registry/ControllersLib.sol:ControllersLib:0x000000000000000000000000000000000000F013",
+]
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

@@ -1,0 +1,120 @@
+#!/usr/bin/env node
+// @ts-check
+
+// Usage: slither-json-to-gitlab <slither-report>
+//
+// Convert Slither JSON output(s) to the Code Climate format used by GitLab.
+// See https://docs.gitlab.com/ee/ci/testing/code_quality.html#implement-a-custom-tool.
+
+const FS = require('node:fs/promises')
+
+/**
+ * @typedef {{
+ *   success: boolean
+ *   error: string | null
+ *   results: {
+ *     detectors: DetectorResult[]
+ *   }
+ * }} SlitherOutput
+ * 
+ * @typedef {{
+ *   elements: DetectorResultElement[]
+ *   description: string
+ *   markdown: string
+ *   first_markdown_element: string
+ *   id: string
+ *   check: string
+ *   impact: 'High' | 'Medium' | 'Low' | 'Informational'
+ *   confidence: 'High' | 'Medium' | 'Low'
+ * }} DetectorResult
+ * 
+ * @typedef {{
+ *   type: 'contract' | 'function' | 'variable' | 'node' | 'pragma' | 'enum' | 'struct' | 'event'
+ *   name: string
+ *   source_mapping: {
+ *     start: number
+ *     length: number
+ *     filename_relative: string
+ *     filename_absolute: string
+ *     filename_short: string
+ *     filename_used: string
+ *     lines: number[]
+ *     starting_column: number
+ *     ending_column: number
+ *   }
+ *   type_specific_fields?: Record<string, any>
+ *   additional_fields?: Record<string, any>
+ * }} DetectorResultElement
+ * 
+ * @typedef {{
+ *   description: string
+ *   check_name: string
+ *   fingerprint: string
+ *   severity: 'info' | 'minor' | 'major' | 'critical' | 'blocker'
+ *   location: {
+ *     path: string
+ *     lines: {
+ *       begin: number
+ *       end?: number
+ *     }
+ *   }
+ * }} CodeClimateIssue
+ */
+
+/** @type {Record<DetectorResult['impact'], CodeClimateIssue['severity']>} */
+const impactToSeverity = {
+  High: 'critical',
+  Medium: 'major',
+  Low: 'minor',
+  Informational: 'info',
+}
+
+/** @type {(result: DetectorResult) => string} */
+const getDescription = (result) => {
+  const lines = result.description.trim().split('\n')
+
+  // GitLab doesn't render \n and long descriptions are hard to read, keep just the first line.
+  return lines[0]
+    // GitLab doesn't render \t.
+    .replaceAll('\t', ' ')
+    // Remove file paths - they are long and makes descriptions harder to read.
+    // Also, GitLab renders the location attribute, so the first file path is
+    // unnecessary.
+    .replaceAll(/ \([^() ]+#\d+(?:-\d+)?\)/g, '')
+    // If there are more lines, append "...".
+    + (lines.length > 1 ? ' ...' : '')
+}
+
+/** @type {(result: DetectorResult) => CodeClimateIssue} */
+const slitherDetectorResultToCodeClimateIssue = (result) => ({
+  description: getDescription(result),
+  check_name: result.check,
+  fingerprint: `${result.id}:${result.check}`,
+  severity: impactToSeverity[result.impact],
+  location: {
+    lines: {
+      begin: result.elements[0].source_mapping.lines[0],
+      end: result.elements[0].source_mapping.lines.at(-1),
+    },
+    path: result.elements[0].source_mapping.filename_relative,
+  }
+})
+
+
+/** @param {string[]} argv */
+async function main(argv) {
+  const input = await FS.readFile(argv[0], 'utf-8')
+  /**@type {SlitherOutput} */
+  const slitherOutput = JSON.parse(input)
+
+  /**@type {CodeClimateIssue[]}*/
+  const codeClimateIssues = slitherOutput.results.detectors
+    .map(slitherDetectorResultToCodeClimateIssue)
+
+  console.log(JSON.stringify(codeClimateIssues))
+}
+
+main(process.argv.slice(2)).catch(err => {
+  console.error(`slither-json-to-gitlab: ${err}`)
+  process.exit(1)
+})

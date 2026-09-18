@@ -1,0 +1,7 @@
+domain: bebi.ebsi.fel.cvut.cz
+
+# Allow authenticated users to access any page on any branch.
+access:
+  '*':
+    /:
+      allow: [ AUTHENTICATED ]

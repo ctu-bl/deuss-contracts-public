@@ -1,0 +1,15 @@
+# syntax=docker/dockerfile:1.8
+
+ARG MEDUSA_IMAGE=ghcr.io/crytic/medusa:latest
+ARG FOUNDRY_IMAGE=ghcr.io/foundry-rs/foundry:v1.7.0
+
+FROM --platform=$TARGETPLATFORM ${FOUNDRY_IMAGE} AS foundry
+
+FROM --platform=$TARGETPLATFORM ${MEDUSA_IMAGE}
+
+COPY --from=foundry /usr/local/bin/forge /usr/local/bin/forge
+COPY --from=foundry /usr/local/bin/cast /usr/local/bin/cast
+COPY --from=foundry /usr/local/bin/anvil /usr/local/bin/anvil
+COPY --from=foundry /usr/local/bin/chisel /usr/local/bin/chisel
+
+RUN forge --version >/dev/null && medusa completion bash >/dev/null

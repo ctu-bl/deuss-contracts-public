@@ -1,0 +1,85 @@
+#!/usr/bin/env node
+// @ts-check
+
+// Usage: solhint-json-to-gitlab <solhint-report>...
+//
+// Convert Solhint JSON output(s) to the Code Climate format used by GitLab.
+// See https://docs.gitlab.com/ee/ci/testing/code_quality.html#implement-a-custom-tool.
+
+const crypto = require('node:crypto')
+const FS = require('node:fs/promises')
+
+/**
+ * @typedef {{
+ *   line: number,
+ *   column: number,
+ *   severity: 'Warning' | 'Error',
+ *   message: string,
+ *   ruleId: string,
+ *   fix: any,
+ *   filePath: string
+ * }} SolhintIssue
+ * 
+ * @typedef {{
+ *   conclusion: string
+ * }} SolhintConclusion
+ * 
+ * @typedef {Array<SolhintIssue | SolhintConclusion>} SolhintOutput
+ * 
+ * @typedef {{
+ *   description: string
+ *   check_name: string
+ *   fingerprint: string
+ *   severity: 'info' | 'minor' | 'major' | 'critical' | 'blocker'
+ *   location: {
+ *     path: string
+ *     lines: {
+ *       begin: number
+ *       end?: number
+ *     }
+ *   }
+ * }} CodeClimateIssue
+ */
+
+/** @type {(issue: SolhintIssue) => CodeClimateIssue} */
+const solhintToCodeClimateIssue = (issue) => ({
+  check_name: `solhint:${issue.ruleId}`,
+  description: issue.message,
+  fingerprint: sha1([issue.filePath, issue.line, issue.column, issue.ruleId].join(':')),
+  severity: issue.severity === 'Error' ? 'critical' : 'minor',
+  location: {
+    path: issue.filePath,
+    lines: {
+      begin: issue.line,
+    },
+  }
+})
+
+/** @type {(value: string) => string}} */
+const sha1 = (value) => crypto.createHash('sha1').update(String(value)).digest('hex')
+
+/** @param {string[]} argv */
+async function main(argv) {
+  const inputs = await Promise.all(argv.map(path => FS.readFile(path, 'utf-8')))
+
+  const solhintIssues = inputs.reduce((acc, input) => {
+    // Workaround for https://github.com/protofire/solhint/issues/624
+    if (!input.trim()) {
+      return acc
+    }
+    /** @type {SolhintOutput} */
+    const obj = JSON.parse(input)
+    return [...acc, ...obj.filter(obj => 'line' in obj)]
+  }, /**@type {SolhintIssue[]}*/([]))
+
+
+  /**@type {CodeClimateIssue[]}*/
+  const codeClimateIssues = solhintIssues.map(solhintToCodeClimateIssue)
+
+  console.log(JSON.stringify(codeClimateIssues))
+}
+
+main(process.argv.slice(2)).catch(err => {
+  console.error(`solhint-json-to-gitlab: ${err}`)
+  process.exit(1)
+})

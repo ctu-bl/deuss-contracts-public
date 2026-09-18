@@ -1,0 +1,5 @@
+# Audits
+
+| Date          | Version | Commit                                                                           | Auditor      | Scope                              | Links                                                       |
+| ------------- | ------- | -------------------------------------------------------------------------------- | ------------ | ---------------------------------- | ----------------------------------------------------------- |
+|  June 2026  | 1.0.0  | [`ba4b2d1c`](https://gitlab.nesad.fit.vutbr.cz/bebi/onchain-core/bond-contract/-/tree/ba4b2d1c) | CODESPECT | Everything except: `src/marketplace/lens/`, `src/marketplace/Orderbook*`, filter/adapter chain (`src/marketplace/filters/*`, `IMarketFilter`, `IMarketplaceLens`, `IMarketplaceLensSource`), `src/deployer/*` (excl. `IProxyDeployer`, `ProxyDeployer`), `script/`, `test/`, third-party dependencies  | [🔗](./VZ0245769_FINAL_AUDIT_REPORT.pdf)                                   |

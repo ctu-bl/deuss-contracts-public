@@ -1,0 +1,244 @@
+# Blockscout stack below is adapted from
+# https://github.com/blockscout/blockscout/tree/master/docker-compose (docker-compose.yml +
+# anvil.yml, inlined), pointed at `anvil-dev` instead of `host.docker.internal`.
+
+services:
+  anvil-dev:
+    container_name: local-anvil
+    # local-compose is a local-only build target (CI only builds/pushes `runtime`, see
+    # dockerfiles/Dockerfile.development and .gitlab-ci.yml's build-docker-image job), so there is
+    # nothing to pull — this always builds locally.
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.development
+      target: local-compose
+      args:
+        CI_JOB_TOKEN: ${CI_JOB_TOKEN}
+    ports:
+      - "8545:8545"
+    volumes:
+      # Set ANVIL_DATA_DIR to an absolute host path to bind-mount existing state instead.
+      - ${ANVIL_DATA_DIR:-anvil-data}:/data
+
+  bundler:
+    container_name: local-bundler
+    image: registry.gitlab.nesad.fit.vutbr.cz:443/bebi/bundler/bundler:latest
+    depends_on:
+      anvil-dev:
+        condition: service_healthy
+    ports:
+      - "14337:14337"
+    volumes:
+      - ./tools/local/bundler-anvil.json:/usr/app/config/bundler.json
+
+  redis-db:
+    image: 'redis:alpine'
+    container_name: redis-db
+    command: redis-server
+    volumes:
+      - ./tools/local/blockscout/data/redis-data:/data
+
+  db-init:
+    image: postgres:17
+    volumes:
+      - ./tools/local/blockscout/data/blockscout-db-data:/var/lib/postgresql/data
+    entrypoint:
+      - sh
+      - -c
+      - |
+        chown -R 2000:2000 /var/lib/postgresql/data
+
+  db:
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    image: postgres:17
+    user: 2000:2000
+    shm_size: 256m
+    restart: always
+    container_name: 'db'
+    command: postgres -c 'max_connections=200' -c 'client_connection_check_interval=60000'
+    environment:
+      POSTGRES_DB: 'blockscout'
+      POSTGRES_USER: 'blockscout'
+      POSTGRES_PASSWORD: 'ceWb1MeLBEeOIfk65gU8EjF8'
+    ports:
+      - target: 5432
+        published: 7432
+    volumes:
+      - ./tools/local/blockscout/data/blockscout-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blockscout -d blockscout"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  backend:
+    depends_on:
+      - db
+      - redis-db
+      - smart-contract-verifier
+    image: registry.gitlab.nesad.fit.vutbr.cz:443/bebi/onchain-core/blockchain-explorer/backend:${DOCKER_TAG:-v11.2.1}
+    pull_policy: always
+    restart: always
+    stop_grace_period: 5m
+    container_name: 'backend'
+    command: sh -c "bin/blockscout eval \"Elixir.Explorer.ReleaseTasks.create_and_migrate()\" && bin/blockscout start"
+    links:
+      - db:database
+    env_file:
+      - ./tools/local/blockscout/envs/common-blockscout.env
+    environment:
+      ETHEREUM_JSONRPC_VARIANT: 'anvil'
+      ETHEREUM_JSONRPC_HTTP_URL: http://anvil-dev:8545/
+      ETHEREUM_JSONRPC_FALLBACK_HTTP_URL: http://anvil-dev:8545/
+      ETHEREUM_JSONRPC_TRACE_URL: http://anvil-dev:8545/
+      ETHEREUM_JSONRPC_FALLBACK_TRACE_URL: http://anvil-dev:8545/
+      ETHEREUM_JSONRPC_WS_URL: ws://anvil-dev:8545/
+      INDEXER_DISABLE_INTERNAL_TRANSACTIONS_FETCHER: 'false'
+      INDEXER_DISABLE_PENDING_TRANSACTIONS_FETCHER: 'true'
+      CHAIN_ID: '31337'
+    volumes:
+      - ./tools/local/blockscout/data/logs:/app/logs/
+      - ./tools/local/blockscout/data/dets:/app/dets/
+
+  smart-contract-verifier:
+    image: ghcr.io/blockscout/smart-contract-verifier:${SMART_CONTRACT_VERIFIER_DOCKER_TAG:-latest}
+    pull_policy: always
+    platform: linux/amd64
+    restart: always
+    container_name: 'smart-contract-verifier'
+    env_file:
+      - ./tools/local/blockscout/envs/common-smart-contract-verifier.env
+
+  visualizer:
+    image: ghcr.io/blockscout/visualizer:${VISUALIZER_DOCKER_TAG:-latest}
+    pull_policy: always
+    platform: linux/amd64
+    restart: always
+    container_name: 'visualizer'
+    env_file:
+      - ./tools/local/blockscout/envs/common-visualizer.env
+
+  sig-provider:
+    image: ghcr.io/blockscout/sig-provider:${SIG_PROVIDER_DOCKER_TAG:-latest}
+    pull_policy: always
+    platform: linux/amd64
+    restart: always
+    container_name: 'sig-provider'
+
+  frontend:
+    depends_on:
+      - backend
+    image: registry.gitlab.nesad.fit.vutbr.cz:443/bebi/onchain-core/blockchain-explorer/frontend:${FRONTEND_DOCKER_TAG:-v2.8.0}
+    pull_policy: always
+    platform: linux/amd64
+    restart: always
+    container_name: 'frontend'
+    env_file:
+      - ./tools/local/blockscout/envs/common-frontend.env
+    environment:
+      NEXT_PUBLIC_NETWORK_ID: '31337'
+      NEXT_PUBLIC_NETWORK_RPC_URL: http://anvil-dev:8545/
+      NEXT_PUBLIC_API_HOST: ${BLOCKSCOUT_HOST:-localhost}
+      NEXT_PUBLIC_APP_HOST: ${BLOCKSCOUT_HOST:-localhost}
+      NEXT_PUBLIC_STATS_API_HOST: http://${BLOCKSCOUT_HOST:-localhost}:8080
+      NEXT_PUBLIC_VISUALIZE_API_HOST: http://${BLOCKSCOUT_HOST:-localhost}:8081
+      NEXT_PUBLIC_HAS_USER_OPS: 'true'
+      NEXT_PUBLIC_USER_OPS_INDEXER_API_HOST: http://${BLOCKSCOUT_HOST:-localhost}:8082
+      NEXT_PUBLIC_AD_BANNER_PROVIDER: 'none'
+
+  stats-db-init:
+    image: postgres:17
+    volumes:
+      - ./tools/local/blockscout/data/stats-db-data:/var/lib/postgresql/data
+    entrypoint:
+      - sh
+      - -c
+      - |
+        chown -R 2000:2000 /var/lib/postgresql/data
+
+  stats-db:
+    depends_on:
+      stats-db-init:
+        condition: service_completed_successfully
+    image: postgres:17
+    user: 2000:2000
+    shm_size: 256m
+    restart: always
+    container_name: 'stats-db'
+    command: postgres -c 'max_connections=200'
+    environment:
+      POSTGRES_DB: 'stats'
+      POSTGRES_USER: 'stats'
+      POSTGRES_PASSWORD: 'n0uejXPl61ci6ldCuE2gQU5Y'
+    ports:
+      - target: 5432
+        published: 7433
+    volumes:
+      - ./tools/local/blockscout/data/stats-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stats -d stats"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  stats:
+    depends_on:
+      - stats-db
+      - backend
+    image: ghcr.io/blockscout/stats:${STATS_DOCKER_TAG:-latest}
+    pull_policy: always
+    platform: linux/amd64
+    restart: always
+    container_name: 'stats'
+    env_file:
+      - ./tools/local/blockscout/envs/common-stats.env
+    environment:
+      - STATS__DB_URL=${STATS__DB_URL:-postgres://stats:n0uejXPl61ci6ldCuE2gQU5Y@stats-db:5432/stats}
+      - STATS__BLOCKSCOUT_DB_URL=${STATS__BLOCKSCOUT_DB_URL:-postgresql://blockscout:ceWb1MeLBEeOIfk65gU8EjF8@db:5432/blockscout}
+      - STATS__CREATE_DATABASE=${STATS__CREATE_DATABASE:-true}
+      - STATS__RUN_MIGRATIONS=${STATS__RUN_MIGRATIONS:-true}
+
+  user-ops-indexer:
+    depends_on:
+      - db
+      - backend
+    image: ghcr.io/blockscout/user-ops-indexer:${USER_OPS_INDEXER_DOCKER_TAG:-latest}
+    pull_policy: always
+    platform: linux/amd64
+    restart: always
+    container_name: 'user-ops-indexer'
+    env_file:
+      - ./tools/local/blockscout/envs/common-user-ops-indexer.env
+    environment:
+      - USER_OPS_INDEXER__INDEXER__RPC_URL=ws://anvil-dev:8545/
+      - USER_OPS_INDEXER__DATABASE__CONNECT__URL=${USER_OPS_INDEXER__DATABASE__CONNECT__URL:-postgresql://blockscout:ceWb1MeLBEeOIfk65gU8EjF8@db:5432/blockscout}
+      - USER_OPS_INDEXER__DATABASE__RUN_MIGRATIONS=true
+
+  proxy:
+    depends_on:
+      - backend
+      - frontend
+      - stats
+    image: nginx
+    container_name: local-blockscout
+    volumes:
+      - ./tools/local/blockscout/proxy:/etc/nginx/templates
+    environment:
+      BACK_PROXY_PASS: ${BACK_PROXY_PASS:-http://backend:4000}
+      FRONT_PROXY_PASS: ${FRONT_PROXY_PASS:-http://frontend:3000}
+    ports:
+      - target: 80
+        published: 80
+      - target: 8080
+        published: 8080
+      - target: 8081
+        published: 8081
+      - target: 8082
+        published: 8082
+
+volumes:
+  anvil-data:
