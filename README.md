@@ -1,200 +1,96 @@
-# Bond Contract -- Implementation using ERC-6909: Minimal Multi-Token Interface
+# DEUSS Smart Contracts
 
-## Installation
+Smart contracts for **DEUSS (Decentralised EU Securities Service)**, an initiative led by the **Czech Technical University in Prague**. DEUSS develops shared infrastructure connecting financial intermediaries and their issuer and investor networks for SME bond issuance, distribution, and secondary trading across Europe.
 
-### Local Development
+Visit [deussblockchain.eu](https://deussblockchain.eu/) for the project overview and participation information.
 
-Use Foundry `v1.7.0` for local development. Verify the active version with `forge --version` before running project commands.
+This repository contains the Solidity implementation of the on-chain protocol: bond and entity registries, ERC-6909 tokens, marketplaces, settlement and escrow components, company wallets, and governance. It also includes deployment scripts, Foundry tests, and stateful fuzzing harnesses.
+
+## Protocol components
+
+| Component | Purpose |
+| --- | --- |
+| [BondRegistry](docs/registry/BondRegistry.md) | Bond publication, issuance, and lifecycle management. |
+| [EntityRegistry](docs/registry/EntityRegistry.md) | Entity records, account registration, and entity authorization. |
+| [DEUSSToken](docs/token/DEUSSToken.md) | ERC-6909 multi-token implementation for bond assets. |
+| [Marketplace](docs/marketplace/Marketplace.md) and [OrderbookMarketplace](docs/marketplace/OrderbookMarketplace.md) | Marketplace offers and orderbook-based trading. |
+| [AssetManager](docs/marketplace/AssetManager.md) and [EscrowManager](docs/marketplace/EscrowManager.md) | Asset custody and escrow workflows. |
+| [CompanyWallet](docs/wallet/CompanyWallet.md), [WalletFactory](docs/wallet/WalletFactory.md), and [PolicyRegistry](docs/registry/PolicyRegistry.md) | Company wallet deployment and policy-controlled execution. |
+| [TimelockController](docs/governance/TimelockController.md) | Timelocked governance operations. |
+
+## Getting started
+
+### Requirements
+
+- Foundry **v1.7.0**; check the active version with `forge --version`.
+- Git for cloning the repository and fetching dependencies.
+- Node.js and npm for the repository's linting and analysis command wrappers.
+
+The Foundry configuration selects **Solidity 0.8.34** and the **Cancun** EVM target. Dependencies and their versions are defined in [foundry.toml](foundry.toml).
+
+**EBSI dependency:** installation fetches `ebsi-infrastructure-contracts` version `0.0.3` from the project's GitLab instance. Access to this GitHub repository alone does not grant access to that dependency; configure GitLab authentication if required before running `forge soldeer install`.
+
+### Install and build
+
+With Foundry installed:
 
 ```bash
-git clone https://gitlab.nesad.fit.vutbr.cz/bebi/onchain-core/bond-contract.git
-cd bond-contract
+git clone https://github.com/ctu-bl/deuss-contracts-public.git
+cd deuss-contracts-public
 
 foundryup -i v1.7.0
+forge --version
 forge soldeer install
+npm ci
 forge build
 ```
 
-### Docker
+## Tests and analysis
 
-This project includes a development container configuration for VS Code. The container is set up with all necessary tools for Solidity development, including:
+Run these commands from the repository root after installing dependencies:
 
-- Foundry framework
-- Solidity linters (Solhint, Slither)
-- Security analysis tools (Echidna, Medusa)
-- Multiple Solidity compiler versions
-- Python development tools
-- Node.js and npm
-- Rust toolchain
-- Go toolchain
+| Command | Purpose |
+| --- | --- |
+| `forge test` | Run the Foundry test suites. |
+| `npm run coverage` | Generate coverage summary and LCOV output. |
+| `npm run lint-all` | Lint Solidity contracts, tests, and scripts. |
+| `npm run slither-debug` | Run the local Slither analysis command. |
+| `npm run mythril-fast` | Run a shorter Mythril symbolic-execution pass. |
+| `npm run mythril` | Run the configured Mythril analysis targets. |
 
-To use the development container:
+Slither and Mythril require separate tool installations. See the [static-analysis guide](docs/security/static-analysis.md) for setup, triage, and the GitLab CI gate policy. The local Slither command is configured not to fail on findings; a successful exit alone does not establish that the analysis found no issues. The included GitLab pipeline configuration does not automatically configure GitHub Actions or scheduled scans.
 
-1. Install Docker and VS Code with the "Remote - Containers" extension
-2. Open this project in VS Code
-3. When prompted, click "Reopen in Container" or use the command palette (F1) and select "Remote-Containers: Reopen in Container"
+For Echidna and Medusa prerequisites, commands, and harness coverage, see the [fuzzing README](test/fuzzing/README.md), [invariant validation ledger](test/fuzzing/INVARIANT_VALIDATION.md), and [fuzzing documentation](docs/fuzzing/).
 
-### Linting tools
+## Deployment
 
-#### Solhint
+Deployment runs in separate stages: contract deployment, protocol bootstrap and role wiring, and optional demo-data seeding. Follow the [deployment guide](docs/deployment.md) for Anvil, Besu, existing EBSI infrastructure, environment variables, and deployment manifests.
 
-Prerequisites: Node.js
+Use [.env.example](.env.example) as the configuration reference. Review the [roles overview](docs/roles.md) and [operational model](docs/security/operational-model.md) before configuring a deployment.
 
-Install Node.js first, then run this command:
-```bash
-npm i
-```
+## Repository layout
 
-Solhint is a linter to identify code style and security issues in Solidity code. The `package.json` scripts run Solhint for source contracts, tests, scripts, or the full project.
-
-Rules are defined in the `.solhint.json` file for contracts, `.solhint.t.json` for tests and `.solhint.s.json` for scripts.
-
-```bash
-# run solhint for source contracts, tests, and scripts
-npm run lint
-```
-
-```bash
-# run solhint for all contracts and tests
-npm run lint-all
-```
-
-#### Slither
-
-Prerequisites: Python 3.8+, pip
-
-Install docs: https://github.com/crytic/slither?tab=readme-ov-file#how-to-install
-
-Rules are defined in the `slither.config.json` file.
-
-Ignored detectors:
-
-- Detector `pragma` is disabled because the project intentionally includes contracts compiled with different Solidity versions, so checking a single pragma range across the full dependency graph is noisy.
-
-```bash
-# install slither
-python3 -m pip install slither-analyzer
-```
-
-```bash
-# run the project Slither configuration
-npm run slither-debug
-```
-
-```bash
-# or run Slither directly with the repo configuration
-slither . --config-file slither.config.json
-```
-
-#### Mythril
-
-Prerequisites: Python 3.8+, pip
-
-Mythril runs symbolic execution over the core contracts. It is heavier than Slither, so in CI it runs on a weekly scheduled pipeline rather than on every merge request. See [docs/security/static-analysis.md](docs/security/static-analysis.md) for the gate policy and target list.
-
-Install docs: https://github.com/Consensys/mythril#installation-and-setup
-
-```bash
-# install mythril (setuptools<81 keeps pkg_resources available for mythril)
-python3 -m pip install 'setuptools<81' mythril
-```
-
-The project wrapper pins Mythril to the selected `solc 0.8.34` binary and uses
-a temporary Mythril data directory, avoiding stale `~/.solcx` or `~/.mythril`
-state. If `solc --version` is not `0.8.34`, run `solc-select use 0.8.34` or set
-`MYTHRIL_SOLC_BINARY=/path/to/solc-0.8.34`.
-
-Known Mythril false positives are triaged in `mythril.db.json` and removed from
-the gated issue set after the raw report is aggregated.
-
-```bash
-# run the project Mythril scan over the core contracts
-npm run mythril
-```
-
-```bash
-# or scan a single contract / tune the per-contract timeout
-MYTHRIL_TARGETS="src/token/fungible/DEUSSToken.sol" MYTHRIL_EXEC_TIMEOUT=60 npm run mythril
-```
-
-## Deployment to the local network (Anvil)
-1. Start Anvil:
-   
-    Console 1
-    ```bash
-    $ anvil
-    ```
-
-1. Deploy contracts and perform basic settings:
-
-    Console 2
-    ```bash
-    make setup
-    ```
-
-## Deployment to the BESU network
-1. Define environment variables for the BESU network (e.g., [.env.example](.env.example)).
-
-2. Deploy contracts and perform basic settings:
-    ```bash
-    $ make setup NETWORK=besu 
-    ```
+- [`src/`](src/) — protocol contracts, interfaces, and shared libraries.
+- [`test/`](test/) — Foundry suites, fixtures, mocks, and fuzzing harnesses.
+- [`script/`](script/) — deployment, bootstrap, demo-data, and operational scripts.
+- [`docs/`](docs/) — architecture, contract behavior, deployment, and security documentation.
+- [`tools/`](tools/) — analysis, fuzzing, export, and local tooling.
 
 ## Documentation
 
-The documentation generated by `forge` is available at https://bebi.ebsi.fel.cvut.cz/bond-contract/.
-If you want to see documentation from a branch other than `master`, append `@<branch>/` to the URL (e.g. https://bebi.ebsi.fel.cvut.cz/bond-contract/@dev/).
-
-The documentation describing individual smart contracts, along with sequence diagrams, can be found in the [docs](/docs/) folder. Main hand-written entry points:
+Start with the documentation included alongside this version of the contracts:
 
 - [Deployment guide](docs/deployment.md)
-- [Roles overview](docs/roles.md)
-- [Operational model (production governance, roles, incident response)](docs/security/operational-model.md)
+- [Roles and permissions](docs/roles.md)
+- [Operational model](docs/security/operational-model.md)
 - [Threat model](docs/security/threat-model.md)
 - [Wallet operational modes](docs/security/wallet-operational-modes.md)
-- Marketplace docs under [docs/marketplace](docs/marketplace), including `InterestDiscovery`, `OrderbookMarketplace`, `EscrowManager`, `AssetManager`, and `BondMarketFilter`
-- Registry, token, wallet, deployer, governance, and utility docs under their matching [docs](docs) subfolders
-- Fuzzing coverage docs under [docs/fuzzing](docs/fuzzing), with the harness overview in [test/fuzzing/README.md](test/fuzzing/README.md)
+- [Static-analysis policy](docs/security/static-analysis.md)
+- [Security development lifecycle](docs/security/sdlc.md)
 
-## Local Development
-
-### Prerequisites
-
-You have followed the installation instructions, started Anvil, and run `make setup`.
-
-### Local Testing of Company Wallet
-
-#### Accounts
-
-**OWNER and ADMIN** as one Entity (Note BEST PRACTICE, see comment below) 
-- PK (1): 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
-- Account (1): 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
-
-**USER**
-- User PK (5): 0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba
-- User Wallet (EoA) (5): 0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc (CEO)
-
-#### Creating a New Wallet for the User
-1. Register or identify the user's entity in `EntityRegistry` with `registerEntity(...)`.
-2. Create the company wallet through `WalletFactory.createWallet(...)`. The caller must satisfy the entity-manager / registry authorization checks enforced by `WalletFactory`.
-3. If the caller is an entity manager, request the link with `EntityRegistry.requestAccountRegistration(...)`; the wallet must then accept by calling `acceptAccountRegistration(entityId)` from the wallet itself, for example through `CompanyWallet.execute(...)`.
-4. Protocol admins can use `EntityRegistry.registerAccount(...)` for immediate bootstrap, recovery, or migration registration. `WalletFactory.createWallet(...)` deploys the wallet but does not register it in `EntityRegistry`.
-
-#### Bond Publication Through a Company Wallet
-0. A company wallet can only publish a bond when it has the required `BondRegistry` role. For publication and amendments, grant the wallet `PUBLISHER`; issuer-authorized paths such as `issueBond` also require the wallet to be the stored bond issuer and enabled in `EntityRegistry`.
-1. Encode the target `BondRegistry` call, such as `publishBond(...)`, `updatePublishedBond(...)`, or `issueBond(...)`.
-2. Call `CompanyWallet.execute(target, value, data)` with the `BondRegistry` proxy address as `target`, `0` as `value`, and the encoded calldata as `data`.
-3. `CompanyWallet` authorizes execution either through wallet ownership or the configured `PolicyRegistry`, then calls the target contract as the wallet.
-
-To better understand direct calls and calls made through the company wallet, see the pic below.
-
-![direct-call-vs-company-call](/docs/images/direct-vs-company-call.png)
-
-#### Important Notes
-1. Our contracts use proxy contracts, i.e., always use the proxy contract **address** when making a call, but use the implementation contract’s ABI.
-2. For `CompanyWallet.execute`, encode calldata for the current target function (`publishBond`, `updatePublishedBond`, `issueBond`, etc.) and use the proxy contract address as the target.
-3. The owner account is assigned all roles across all contracts — **this is not a best practice**, as roles should be assigned to dedicated wallets.
+Contract-specific guides and sequence diagrams are organized under [docs/](docs/).
 
 ## Resources
 
-- [ERC-6909](https://eips.ethereum.org/EIPS/eip-6909)
+- [DEUSS project website](https://deussblockchain.eu/)
+- [ERC-6909: Minimal Multi-Token Interface](https://eips.ethereum.org/EIPS/eip-6909)
